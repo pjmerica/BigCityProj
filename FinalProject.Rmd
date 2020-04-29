@@ -1,0 +1,198 @@
+---
+title: "Final Project 406"
+author: "Paul Merica"
+date: "May 1st, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+##Introduction
+```{r}
+#install.packages("maps")
+#install.packages("coin")
+library(tidyverse)
+library(maps)
+myprojectdata = read.csv("stalt_moave.csv")#Unemployment rates by state, BLS table
+all_states <- map_data("state") #Used for making United states map. From R-blog link in bibliography
+
+```
+
+
+
+
+###Data & Analysis
+```{r}
+#This is all code to make United States map, just a modified version of the R-Bloggers link.www.r-bloggers.com/us-state-maps-using-map_data/ 
+cleanerunemployed = myprojectdata %>% filter(X.6 == "2007 annual average" | X.6 == "2017 annual average") %>% select(X.1,X.2,X.20) %>% spread(X.2,X.20) #Cleaning up data, choosing U6 & state
+head(cleanerunemployed)
+cleanerunemployed$X.1 = tolower(as.character(cleanerunemployed$X.1))
+cleanerunemployed$'2007' = as.numeric(levels(cleanerunemployed$'2007'))[as.integer(cleanerunemployed$'2007')]
+cleanerunemployed$'2017'= as.numeric(levels(cleanerunemployed$'2017'))[as.integer(cleanerunemployed$'2017')]
+colnames(cleanerunemployed)[1] <- "region"
+betterunemployed = cleanerunemployed %>% mutate(change = cleanerunemployed$'2017' - cleanerunemployed$'2007') #Calculating differences for change column 
+print(betterunemployed)
+head(all_states)
+Total <- merge(all_states, betterunemployed, by="region") #merging tables
+p <- ggplot()
+p <- p + geom_polygon(data=Total, aes(x=long, y=lat, group = group, fill=Total$change),colour="white") + scale_fill_continuous(low = "thistle2", high = "darkred", guide="colorbar")
+P1 <- p + theme_bw()  + labs(fill = "Change in unemployment(U6)" 
+                            ,title = "Rate of Economic Recovery by State from the Recession(2007) to 2017", x="", y="")
+P1 + scale_y_continuous(breaks=c()) + scale_x_continuous(breaks=c()) + theme(panel.border =  element_blank())
+```
+
+```{r}
+head(cleanerunemployed)
+
+```
+
+
+```{r}
+#Same as other graph but with U3 now
+cleanunemployed = myprojectdata %>% filter(X.6 == "2007 annual average" | X.6 == "2017 annual average") %>% select(X.1,X.2,X.17) %>% spread(X.2,X.17) #Selecting U3 and state
+head(cleanunemployed)
+cleanunemployed$X.1 = tolower(as.character(cleanunemployed$X.1))
+cleanunemployed$'2007' = as.numeric(levels(cleanunemployed$'2007'))[as.integer(cleanunemployed$'2007')]
+cleanerunemployed$'2017'= as.numeric(levels(cleanunemployed$'2017'))[as.integer(cleanunemployed$'2017')]
+colnames(cleanunemployed)[1] <- "region"
+betunemployed = cleanerunemployed %>% mutate(change = cleanunemployed$'2017' - cleanerunemployed$'2007') #Calculating change variable
+print(betunemployed)
+
+Total1 <- merge(all_states, betunemployed, by="region") #merging tables
+p1 <- ggplot()
+p1 <- p1 + geom_polygon(data=Total1, aes(x=long, y=lat, group = group, fill=Total$change),colour="white") + scale_fill_continuous(low = "thistle2", high = "darkred", guide="colorbar")
+P11 <- p1 + theme_bw()  + labs(fill = "Change in unemployment(U3)" 
+                            ,title = "Rate of Economic Recovery by State from the Recession(2007) to 2017", x="", y="")
+P11 + scale_y_continuous(breaks=c()) + scale_x_continuous(breaks=c()) + theme(panel.border =  element_blank())
+```
+```{r}
+library("tibble")
+#Data frame I created by hand using information from factfinder.census.gov/faces/tableservices/jsf/pages/productview.xhtml?src=bkmk. This is also in the bibliography
+citiesover500_data <- data_frame(
+  state = c("Alabama", "Alaska", "Arizona", "Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"),
+  over500 = c("N", "N", "Y", "N","Y","Y","N","N","Y","Y","N","N","Y","Y","N","N","Y","N","N","N","Y","Y","N","N","N","N","N","Y","N","N","Y","Y","Y","N","Y","Y","Y","Y","N","N","N","Y","Y","N","N","N","Y","N","Y","N"),
+  numofcities = c(0, 0, 1, 0,6,1,0,0,1,0,0,0,1,1,0,0,1,0,0,1,1,1,0,0,0,0,0,1,0,0,1,1,1,0,1,1,1,1,0,0,0,2,6,0,0,0,1,0,1,0)
+)
+print(citiesover500_data)
+```
+
+
+```{r}
+citiesover500_data$state = tolower(citiesover500_data$state) # need to make state names homogenous to merge
+colnames(betterunemployed)[1] <- "state" #changing column name to help merge
+testboys <- merge(betterunemployed, citiesover500_data, by= "state")
+head(testboys) #new data set merging my hand created one with the modified BLS one
+
+forttest = testboys %>% group_by(over500) %>% filter(over500 == "N") %>% select(change) #change values for states without big cities
+forttest2 = testboys %>% group_by(over500) %>% filter(over500 == "Y") %>% select(change) #change values for states with big cities
+nrow(forttest)#n value for No big cities
+nrow(forttest2)#n value for big city states
+a = as.vector(forttest$change)#needed to create these two as vectors in order to put them in the WMW test
+b = as.vector(forttest2$change)
+
+Testediff = mean(a)- mean(b) #observed value mean, States w/o big cities - States with big cities.
+boxplot(a,b,main=c("The Change In Unemployment Rate from 2007-2017(U6)"),names=c("States w/o big Cities","Big City States")) #boxplot to show spread
+t.test(a,b, var.equal=TRUE, paired=FALSE) #t-test for p-value. Ended up not being used
+wilcox.test(a,b) # WMW test used to find first p-value
+mean(a) #mean change of Big city
+mean(b) #mean change of States with no big cities
+
+
+outliershigh = testboys %>% filter(over500 == "Y") %>% mutate(n = rank(change)) %>% arrange(-n) #find out who the high outliers are
+head(outliershigh)
+outlierslow = testboys %>% filter(over500 == "Y") %>% mutate(n = rank(change)) %>% arrange(n) #find negative outlier
+head(outlierslow)
+
+elimoutliers = testboys %>% filter(over500 == "Y", change<3.2 & change > -3.7) %>% select(change)   #eliminating outliers
+nrow(elimoutliers) # checking to make sure they are eliminated
+newb = as.vector(elimoutliers$change) #need to make it a vector so that it goes in the WMW test
+mean(newb) #new mean without outliers
+Testeddiff2 = mean(a) - mean(newb)
+Testeddiff2 #new mean with outliers removed
+wilcox.test(a,newb) #new WMW test with outliers removed
+boxplot(a,newb,main=c("The Change In Unemployment Rate from 2007-2017(U6) w/o outliers"),names=c("States w/o big Cities","Big City States")) #new boxplot with outliers removed
+
+ newnumberofcitiestbl = testboys %>% filter(over500 == "Y", numofcities > 1) #table for states with more than one big cities
+ smallcityboys = testboys %>% filter(over500 == "N" | numofcities == 1)#states with no big cities
+ head(newnumberofcitiestbl)
+ bigstates= as.vector(newnumberofcitiestbl$change)#same as before need to change into a vector
+ smallstates = as.vector(smallcityboys$change)
+ 
+ wilcox.test(bigstates,smallstates)#Test of states with mult. big cities vs states w/ 0 or 1 big city
+```
+
+###Method
+```{r}
+hist(a, main = c("States With Big Cities"),xlab = c("The Change In Unemployment Rate from 2007-2017(U6)")) #examining distribution of sample of big city states
+hist(b,main = c("States Without big cities"), xlab=c("The Change In Unemployment Rate from 2007-2017(U6)")) #examining distribution of sample of states without big cities
+```
+
+
+###Simulations
+
+```{r}
+#Permutation starting
+
+adist = sample(a)
+bdist = sample(b)
+
+temp = sample(c(a,b),replace=FALSE)#resampling to get same length 
+nullmean=NULL
+resample_a = temp[1:25] #resampling to get same length 
+resample_b = temp[26:50]
+nullmean = mean(resample_a) - mean(resample_b) #mean of what the null distribution should be
+
+x <- rnorm(1000, mean = mean(a), sd = sd(a)) #normal dist with our means/sds
+y <- rnorm(1000, mean = mean(b), sd = sd(b)) #normal dist with our means/sds
+
+dist <- replicate(2000, diff(by(resample_a, sample(resample_b, length(resample_b), FALSE), mean))) ##under null distribution
+hist(dist, xlim = c(-4, 4), col = "black", breaks = 150, main = c("Histogram of Approximate Permutation Curve"), xlab=c("Difference In Simulated Means Between States w/ Big cities and States without Big Cities")) #Slightly modified code taken from Thomas Leeper. Also in bibliography. Approximates the permutation curve of mean difference between the main variables.
+abline(v = Testediff, col = "blue", lwd = 2)#our observed test statistic in our sample
+```
+}}
+
+```{r}
+#this is taken from my homework #7, calculating power using a monte carlo approach.
+newvec123=c()
+newvec123 = replicate(1000,wilcox.test(rnorm(20,mean = mean(a), sd = sd(a)),rnorm(20,mean = mean(b), sd = sd(b)))$p.value) #creating many iteration of normal r.v. distributions with  the sample mean and sample standard deviation used above. Asssuming a normal 
+newvec1234 = replicate(1000,t.test(rnorm(20,mean = mean(a), sd = sd(a)),rnorm(20,mean = mean(b), sd = sd(b)))$p.value)
+c1 = 0 
+c2 = 0
+for(i in 1:length(newvec123)){
+    if(newvec123[i] < .05){
+       c1 = c1 + 1 #counting number of successes for WMW
+    }
+}
+for(i in 1:length(newvec1234)){
+    if(newvec1234[i] < .05){
+      c2 = c2 +1  #counting number of successes for t-test
+    }
+}
+
+binom.test(c1,1000, conf.level =.99) #Type I error under wilcox w/ normal assumption
+binom.test(c2,1000, conf.level =.99) #Type I error under t test w/ normak assumption
+
+newvecuni=c()
+newvecuni = replicate(1000,wilcox.test(rt(20,21), (rt(20,27)))$p.value)#same as above but now with a t distribution and using parameters from our samples
+newvecuni2 = replicate(1000,t.test(rt(20,21),(rt(20,27)))$p.value)
+c1uni = 0 
+c2uni = 0
+for(i in 1:length(newvecuni)){
+    if(newvecuni[i] < .05){
+       c1uni = c1uni + 1
+    }
+}
+for(i in 1:length(newvecuni2)){
+    if(newvecuni2[i] < .05){
+      c2uni = c2uni +1
+    }
+}
+
+binom.test(c1uni,1000, conf.level =.99) #Type I error under wilcox w/ t-distribution assumption
+binom.test(c2uni,1000, conf.level =.99) #Type I error under t test w/ t-distribution assumption
+```
